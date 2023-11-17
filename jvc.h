@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-std::string getPressed(float voltage);
+std::string getPressed(int val);
 
 #endif
 

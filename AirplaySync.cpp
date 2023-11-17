@@ -22,26 +22,87 @@ int main()
 
 	pinMode(VFD_STB, OUTPUT);
 	digitalWrite(VFD_STB, HIGH);
+	
+	// Use Arduino pro mini as ADC :D
+
+	int serialHandle = serialOpen("/dev/serial0", 115200);
+	std::cout << "open serial handle at: " << serialHandle << std::endl;
+	if (serialHandle == -1) {
+		std::cout << "failed to configure serial port" << std::endl;
+		// Handle SPI setup error
+		return 1;
+	}
 
 	int spiHandle = wiringPiSPISetup(CHANNEL, SPEED);
 	if (spiHandle == -1) {
+		std::cout << "failed to configure SPI" << std::endl;
 		// Handle SPI setup error
 		return 1;
 	}
 	
-	std::cout << "Hello from airplay sidecar";
+	std::cout << "Hello from airplay sidecar" << std::endl;
 
+	static int dataIndex = 0;
+	unsigned long lastMoveTime = 0;
+	
 	for (;;)
 	{
-		
 		unsigned long currentTime = millis();
+	
+		if (poweredOn)
+		{
+			if (currentTime - lastMoveTime >= scrollDelayMs)
+			{
+				scrollString("OLGA IS GOOD WIFE");
 
-		int sensorValue = analogRead(ADC_PIN_ARRAY);
-		std::cout << sensorValue << std::endl;
-		float voltage = sensorValue * (3.3 / 1023.0);
-		std::string button = getPressed(voltage);
+				lastMoveTime = currentTime;
+			}
+		}
+		
+		char receivedString[50]; // Buffer to store received characters
+		int charIndex = 0;
+		int receivedInt = -1;
 
-		if (button == "keon")
+		// Check if data is available in the serial buffer
+		while (serialDataAvail(serialHandle) > 0) {
+			// Read a character from the serial port
+			char incomingChar = serialGetchar(serialHandle);
+
+			// Check if the received character is a newline character
+			if (incomingChar == '\n') {
+				// Null-terminate the string
+				receivedString[charIndex] = '\0';
+				receivedInt = atoi(receivedString);
+				
+				// Reset the buffer index
+				charIndex = 0;
+			}
+			else {
+				// Store the character in the buffer
+				receivedString[charIndex++] = incomingChar;
+
+				// Check if the buffer is full to avoid overflow
+				if (charIndex >= sizeof(receivedString) - 1) {
+					charIndex = 0; // Reset the buffer index
+				}
+			}
+		}
+		
+				
+		if (receivedInt == -1)
+		{
+			delay(100);
+			continue;
+		}
+		
+		std::string button = getPressed(receivedInt);
+		if (button == "")
+		{		
+			delay(100);
+			continue;
+		}
+
+		if (button == "on")
 		{
 			delay(50);
 			if (button != "on")
@@ -97,16 +158,6 @@ int main()
 				digitalWrite(V3_3_CTRL, LOW);
 				lastMoveIdx = 0;
 				std::cout << "powering off power source and VFD\n";
-			}
-		}
-
-		if (poweredOn)
-		{
-			if (currentTime - lastMoveTime >= scrollDelayMs)
-			{
-				scrollString("OLGA IS GOOD WIFE");
-
-				lastMoveTime = currentTime;
 			}
 		}
 

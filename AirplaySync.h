@@ -8,6 +8,7 @@
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
+#include <wiringSerial.h>
 #include <utility>
 
 #include <cstring>
@@ -32,7 +33,6 @@
 bool poweredOn = false;
 
 const int scrollDelayMs = 1500;
-unsigned long lastMoveTime = 0;
 
 std::string getPressed(float voltage);
 
