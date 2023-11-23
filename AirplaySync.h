@@ -13,6 +13,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <csignal>
 
 // standby led pin front panel
 #define LED_PIN 22 //GPIO pin 6

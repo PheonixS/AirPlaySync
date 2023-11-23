@@ -1,7 +1,101 @@
 #include "AirplaySync.h"
 
+void powerOffVFD()
+{
+	poweredOn = false;
+	digitalWrite(LED_PIN, LED_STANDBY);
+	digitalWrite(POWER_SOURCE_PIN, LOW);
+	digitalWrite(V3_3_CTRL, LOW);
+	lastMoveIdx = 0;
+}
+
+// Signal handler function
+void signalHandler(int signum) {
+	std::cout << "Received signal: " << signum << ". Cleaning up and exiting..." << std::endl;
+
+	powerOffVFD();
+
+	// Terminate the program
+	exit(signum);
+}
+
+void powerOnVFD()
+{
+	poweredOn = true;
+	digitalWrite(POWER_SOURCE_PIN, HIGH);
+	digitalWrite(V3_3_CTRL, HIGH);
+	digitalWrite(LED_PIN, LED_READY);
+	std::cout << "Powering on power source\n";
+	// waiting for VFD driver startup
+	delay(200);
+
+	// clear RAM
+	for (size_t i = 0; i < 0x23; i++)
+	{
+		// command 3 - clear RAM
+		digitalWrite(VFD_STB, LOW);
+		vfdSend(0b11000000);
+		vfdSend(0x00);
+		vfdSend(0x00);
+		digitalWrite(VFD_STB, HIGH);
+	}
+
+	digitalWrite(VFD_STB, LOW);
+	// command 1 - 10 digits 18 segments
+	vfdSend(0b00000110);
+	digitalWrite(VFD_STB, HIGH);
+
+	delay(1);
+	// command 2 - normal mode
+	digitalWrite(VFD_STB, LOW);
+	vfdSend(0b01000000);
+	digitalWrite(VFD_STB, HIGH);
+	delay(1);
+
+	// command 4 turn on display
+	digitalWrite(VFD_STB, LOW);
+	vfdSend(0b10001111);
+	digitalWrite(VFD_STB, HIGH);
+}
+
+int parseButton(int serialHandle)
+{
+	char receivedString[50]; // Buffer to store received characters
+	int charIndex = 0;
+	int receivedInt = -1;
+	
+	// Check if data is available in the serial buffer
+	while (serialDataAvail(serialHandle) > 0) {
+		// Read a character from the serial port
+		char incomingChar = serialGetchar(serialHandle);
+
+		// Check if the received character is a newline character
+		if (incomingChar == '\n') {
+			// Null-terminate the string
+			receivedString[charIndex] = '\0';
+			receivedInt = atoi(receivedString);
+				
+			// Reset the buffer index
+			charIndex = 0;
+		}
+		else {
+			// Store the character in the buffer
+			receivedString[charIndex++] = incomingChar;
+
+			// Check if the buffer is full to avoid overflow
+			if (charIndex >= sizeof(receivedString) - 1) {
+				charIndex = 0; // Reset the buffer index
+			}
+		}
+	}
+	return receivedInt;
+}
+
 int main()
 {
+	std::signal(SIGTERM, signalHandler);
+	std::signal(SIGINT, signalHandler);
+	
 	if (wiringPiSetup() == -1) {
 		std::cerr << "Error initializing WiringPi." << std::endl;
 		return 1;
@@ -59,35 +153,7 @@ int main()
 			}
 		}
 		
-		char receivedString[50]; // Buffer to store received characters
-		int charIndex = 0;
-		int receivedInt = -1;
-
-		// Check if data is available in the serial buffer
-		while (serialDataAvail(serialHandle) > 0) {
-			// Read a character from the serial port
-			char incomingChar = serialGetchar(serialHandle);
-
-			// Check if the received character is a newline character
-			if (incomingChar == '\n') {
-				// Null-terminate the string
-				receivedString[charIndex] = '\0';
-				receivedInt = atoi(receivedString);
-				
-				// Reset the buffer index
-				charIndex = 0;
-			}
-			else {
-				// Store the character in the buffer
-				receivedString[charIndex++] = incomingChar;
-
-				// Check if the buffer is full to avoid overflow
-				if (charIndex >= sizeof(receivedString) - 1) {
-					charIndex = 0; // Reset the buffer index
-				}
-			}
-		}
-		
+		int receivedInt = parseButton(serialHandle);
 				
 		if (receivedInt == -1)
 		{
@@ -112,51 +178,12 @@ int main()
 
 			if (!poweredOn)
 			{
-				poweredOn = true;
-				digitalWrite(POWER_SOURCE_PIN, HIGH);
-				digitalWrite(V3_3_CTRL, HIGH);
-				digitalWrite(LED_PIN, LED_READY);
-				std::cout << "Powering on power source\n";
-				// waiting for VFD driver startup
-				delay(200);
-
-				// clear RAM
-				for (size_t i = 0; i < 0x23; i++)
-				{
-					// command 3 - clear RAM
-					digitalWrite(VFD_STB, LOW);
-					vfdSend(0b11000000);
-					vfdSend(0x00);
-					vfdSend(0x00);
-					digitalWrite(VFD_STB, HIGH);
-				}
-
-				digitalWrite(VFD_STB, LOW);
-				// command 1 - 10 digits 18 segments
-				vfdSend(0b00000110);
-				digitalWrite(VFD_STB, HIGH);
-
-				delay(1);
-				// command 2 - normal mode
-				digitalWrite(VFD_STB, LOW);
-				vfdSend(0b01000000);
-				digitalWrite(VFD_STB, HIGH);
-				delay(1);
-
-				// command 4 turn on display
-				digitalWrite(VFD_STB, LOW);
-				vfdSend(0b10001111);
-				digitalWrite(VFD_STB, HIGH);
-
+				powerOnVFD();
 				std::cout << "powering on VFD\n";
 			}
 			else if (poweredOn) // shutdown if already powered on
 			{
-				poweredOn = false;
-				digitalWrite(LED_PIN, LED_STANDBY);
-				digitalWrite(POWER_SOURCE_PIN, LOW);
-				digitalWrite(V3_3_CTRL, LOW);
-				lastMoveIdx = 0;
+				powerOffVFD();
 				std::cout << "powering off power source and VFD\n";
 			}
 		}
