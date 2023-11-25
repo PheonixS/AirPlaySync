@@ -23,7 +23,7 @@ void scrollString(const char *s);
 // display pins Chip Enable
 #define VFD_STB 27 // GPIO pin 16
 
-#define maxLen 10
+#define VFD_MAXLENGTH 10
 extern int lastMoveIdx;
 
 #define CHANNEL 0 // SPI channel (0 or 1)

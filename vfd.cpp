@@ -51,6 +51,12 @@ std::map<char, TwoBytes> asciiMap = {
 	{'-', {0b00000000, 0b11000000}},
 	{'/', {0b00000010, 0b00001000}},
 	{'*', {0b00001110, 0b00111000}},
+	{'\'', {0b00000100, 0b00000000}},
+	{'"',  {0b00000100, 0b00000000}},
+	{'.', {0b00000000, 0b01000000}},
+	{'(', {0b00001000, 0b00000000}},
+	{')', {0b00000010, 0b00000000}},
+	{':', {0b00000010, 0b00001000}},
 };
 
 
@@ -107,17 +113,28 @@ void writeChar(char c)
 
 int lastMoveIdx = 0;
 
+void addSpacesToRight(char* s, int targetLength) {
+	int currentLength = static_cast<int>(std::strlen(s));
 
+	if (currentLength < targetLength) {
+		int spacesToAdd = targetLength - currentLength;
+		std::memset(s + currentLength, ' ', spacesToAdd);
+		s[targetLength] = '\0';  // Null-terminate the modified string
+	}
+}
+
+// it only displays uppercase, please see mapping above
+// it will also add padding to MAXLENGTH characters with spaces
 void scrollString(const char *s)
 {
 	size_t origLen = strlen(s);
 
 	if (origLen > 10)
 	{
-		int maxIdx = origLen - maxLen;
+		int maxIdx = origLen - VFD_MAXLENGTH;
 
 		char windowOutput[11];
-		snprintf(windowOutput, sizeof(windowOutput), "%.*s", maxLen, s + lastMoveIdx);
+		snprintf(windowOutput, sizeof(windowOutput), "%.*s", VFD_MAXLENGTH, s + lastMoveIdx);
 		digitalWrite(VFD_STB, LOW);
 		writeString(windowOutput);
 		digitalWrite(VFD_STB, HIGH);
@@ -129,10 +146,18 @@ void scrollString(const char *s)
 		{
 			lastMoveIdx = 0;
 		}
-		return;
 	}
-
-	digitalWrite(VFD_STB, LOW);
-	writeString(s);
-	digitalWrite(VFD_STB, HIGH);
+	else
+	{
+		char mS[VFD_MAXLENGTH + 1];  // Make sure it's large enough to accommodate the content
+		// Copy the content to the mutable string
+		std::strcpy(mS, s);
+		
+		addSpacesToRight(mS, VFD_MAXLENGTH);
+		
+		digitalWrite(VFD_STB, LOW);
+		writeString(mS);
+		digitalWrite(VFD_STB, HIGH);
+		
+	}
 }

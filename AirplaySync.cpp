@@ -1,5 +1,135 @@
 #include "AirplaySync.h"
 
+std::string title = "";
+bool displayCleared = false;
+icu::Transliterator* t;
+
+char* toUpperCase(const char* str) {
+	size_t length = std::strlen(str);
+	char* result = new char[length + 1];  // +1 for the null terminator
+
+	for (size_t i = 0; i < length; ++i) {
+		result[i] = std::toupper(str[i]);
+	}
+
+	result[length] = '\0';  // Null-terminate the new string
+	return result;
+}
+
+std::string filterString(const char* input, const std::map<char, TwoBytes>& asciiMap) {
+	std::string result;
+
+	for (; *input != '\0'; ++input) {
+		char currentChar = *input;
+
+		// Check if the character is in the map
+		if (asciiMap.find(currentChar) != asciiMap.end()) {
+			result += currentChar;
+		}
+	}
+
+	return result;
+}
+
+void clearDisplay()
+{
+	digitalWrite(VFD_STB, LOW);
+	writeString("        ");
+	digitalWrite(VFD_STB, HIGH);
+}
+
+std::string hexToString(const std::string& hex) {
+	std::string result;
+	for (size_t i = 0; i < hex.length(); i += 2) {
+		std::string byteString = hex.substr(i, 2);
+		char byte = static_cast<char>(std::stoi(byteString, nullptr, 16));
+		result += byte;
+	}
+	return result;
+}
+
+std::string transliterate(const std::string& text) {	
+	// Convert std::string to icu::UnicodeString
+	icu::UnicodeString input;
+	input.setTo(text.c_str());
+	
+	t->transliterate(input);
+	
+	// Convert back to std::string if needed
+	std::string resultStr;
+	input.toUTF8String(resultStr);
+	
+	return resultStr;
+}
+
+void readFromPipe(const std::string& pipePath) {
+	std::ifstream pipe(pipePath);
+	if (!pipe.is_open()) {
+		std::cerr << "Error opening pipe." << std::endl;
+		return;
+	}
+
+	std::string xmlString;
+	std::string line;
+
+	while (std::getline(pipe, line)) {
+		xmlString += line;
+
+		// Assume each XML message ends with </item>
+		size_t pos = xmlString.find("</item>");
+
+		// Check if </item> is found, indicating the end of a message
+		if (pos != std::string::npos) {
+			// Extract the XML message
+			std::string message = xmlString.substr(0, pos + 7); // +7 to include </item>
+            
+			// Process the XML message
+			pugi::xml_document doc;
+			pugi::xml_parse_result result = doc.load_string(message.c_str());
+
+			if (result) {
+				// Successfully parsed XML
+				pugi::xml_node itemNode = doc.child("item");
+				if (itemNode) {
+					std::string type = itemNode.child("type").text().as_string();
+					std::string code = itemNode.child("code").text().as_string();
+					std::string data = itemNode.child("data").text().as_string();							
+					
+					std::string decodedtype = hexToString(type);
+					std::string decodedcode = hexToString(code);
+									
+					if (data != "")
+					{
+						if (decodedcode == "minm")
+						{
+							std::string decodedData = transliterate(base64::from_base64(data));							
+							const char* upperCaseData = toUpperCase(decodedData.c_str());
+							std::string filteredData = filterString(upperCaseData, asciiMap);
+							if (title != filteredData.c_str())
+							{
+								title = filteredData.c_str();
+								displayCleared = false;
+								std::cout << "title: " << decodedData << std::endl;
+							}
+						}
+					}
+				}
+				else {
+					std::cerr << "Error: 'item' node not found." << std::endl;
+				}
+			}
+			else {
+				std::cerr << "Error parsing XML: " << result.description() << std::endl;
+			}
+
+			// Remove the processed XML message from xmlString
+			xmlString.erase(0, pos + 7);
+		}
+	}
+	
+	pipe.close();
+}
+
 void powerOffVFD()
 {
 	poweredOn = false;
@@ -18,28 +148,20 @@ void signalHandler(int signum) {
 	// Terminate the program
 	exit(signum);
 }
-
-void powerOnVFD()
+void syncDisplay()
 {
-	poweredOn = true;
-	digitalWrite(POWER_SOURCE_PIN, HIGH);
-	digitalWrite(V3_3_CTRL, HIGH);
-	digitalWrite(LED_PIN, LED_READY);
-	std::cout << "Powering on power source\n";
-	// waiting for VFD driver startup
-	delay(200);
-
 	// clear RAM
-	for (size_t i = 0; i < 0x23; i++)
+	
+	for (size_t i = 0; i < 0x24; i++)
 	{
-		// command 3 - clear RAM
 		digitalWrite(VFD_STB, LOW);
+		// command 3 - clear RAM
 		vfdSend(0b11000000);
 		vfdSend(0x00);
 		vfdSend(0x00);
 		digitalWrite(VFD_STB, HIGH);
 	}
-
+	
 	digitalWrite(VFD_STB, LOW);
 	// command 1 - 10 digits 18 segments
 	vfdSend(0b00000110);
@@ -56,6 +178,17 @@ void powerOnVFD()
 	digitalWrite(VFD_STB, LOW);
 	vfdSend(0b10001111);
 	digitalWrite(VFD_STB, HIGH);
+}
+
+void powerOnVFD()
+{
+	poweredOn = true;
+	digitalWrite(POWER_SOURCE_PIN, HIGH);
+	digitalWrite(V3_3_CTRL, HIGH);
+	digitalWrite(LED_PIN, LED_READY);
+	std::cout << "Powering on power source\n";
+	// waiting for VFD driver startup
+	delay(200);
 }
 
 int parseButton(int serialHandle)
@@ -91,8 +224,22 @@ int parseButton(int serialHandle)
 	return receivedInt;
 }
 
+
 int main()
 {
+	title = "NONE PLAYING";
+	
+	//prepare transliterator
+	icu::UnicodeString rules = "Any-Latin; Latin-ASCII";
+	UErrorCode status = U_ZERO_ERROR;
+	t = icu::Transliterator::createInstance(rules, UTRANS_FORWARD, status);
+
+	if (U_FAILURE(status) || !t) {
+		std::cerr << "Error creating transliterator. Error code: " << u_errorName(status) << std::endl;
+		return 1;
+	}
+
+	
 	std::signal(SIGTERM, signalHandler);
 	std::signal(SIGINT, signalHandler);
 	
@@ -120,7 +267,6 @@ int main()
 	// Use Arduino pro mini as ADC :D
 
 	int serialHandle = serialOpen("/dev/serial0", 115200);
-	std::cout << "open serial handle at: " << serialHandle << std::endl;
 	if (serialHandle == -1) {
 		std::cout << "failed to configure serial port" << std::endl;
 		// Handle SPI setup error
@@ -134,11 +280,17 @@ int main()
 		return 1;
 	}
 	
+	const std::string pipePath = "/tmp/shairport-sync-metadata";
+	std::thread readerThread(readFromPipe, pipePath);
+	
 	std::cout << "Hello from airplay sidecar" << std::endl;
 
 	static int dataIndex = 0;
 	unsigned long lastMoveTime = 0;
 	
+	powerOnVFD();
+	std::cout << "powering on VFD\n";
+
 	for (;;)
 	{
 		unsigned long currentTime = millis();
@@ -147,8 +299,13 @@ int main()
 		{
 			if (currentTime - lastMoveTime >= scrollDelayMs)
 			{
-				scrollString("OLGA IS GOOD WIFE");
-
+				if (!displayCleared)
+				{
+					clearDisplay();
+					displayCleared = true;
+				}
+				scrollString(title.c_str());
+				
 				lastMoveTime = currentTime;
 			}
 		}
@@ -190,4 +347,6 @@ int main()
 
 		delay(100);
 	}
+	
+	readerThread.join();
 }

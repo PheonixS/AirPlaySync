@@ -14,6 +14,18 @@
 #include <cstring>
 #include <iostream>
 #include <csignal>
+#include <fstream>
+#include <thread>
+
+#include "base64.hpp"
+#include "pugixml.hpp"
+#include <regex>
+#include <unicode/unistr.h>
+#include <unicode/translit.h>
+#include <unicode/ustring.h>
+
+#include <mutex>
+#include <shared_mutex>
 
 // standby led pin front panel
 #define LED_PIN 22 //GPIO pin 6
