@@ -4,6 +4,26 @@ std::string title = "";
 bool displayCleared = false;
 icu::Transliterator* t;
 
+void powerOffVFD()
+{
+	poweredOn = false;
+	digitalWrite(LED_PIN, LED_STANDBY);
+	digitalWrite(POWER_SOURCE_PIN, LOW);
+	digitalWrite(V3_3_CTRL, LOW);
+	lastMoveIdx = 0;
+}
+
+void powerOnVFD()
+{
+	poweredOn = true;
+	digitalWrite(POWER_SOURCE_PIN, HIGH);
+	digitalWrite(V3_3_CTRL, HIGH);
+	digitalWrite(LED_PIN, LED_READY);
+	std::cout << "Powering on power source\n";
+	// waiting for VFD driver startup
+	delay(200);
+}
+
 char* toUpperCase(const char* str) {
 	size_t length = std::strlen(str);
 	char* result = new char[length + 1];  // +1 for the null terminator
@@ -100,6 +120,7 @@ void readFromPipe(const std::string& pipePath) {
 									
 					if (data != "")
 					{
+						// Title
 						if (decodedcode == "minm")
 						{
 							std::string decodedData = transliterate(base64::from_base64(data));							
@@ -111,6 +132,18 @@ void readFromPipe(const std::string& pipePath) {
 								displayCleared = false;
 								std::cout << "title: " << decodedData << std::endl;
 							}
+						}else if (decodedcode == "conn")
+						{	
+							// if connection was requested
+							//powering on VFD
+							powerOnVFD();
+							std::cout << "powering on VFD\n";
+						}else if (decodedcode == "disc")
+						{	
+							// connection was terminated
+							// powering off VFD
+							powerOffVFD();
+							std::cout << "powering off VFD\n";
 						}
 					}
 				}
@@ -130,15 +163,6 @@ void readFromPipe(const std::string& pipePath) {
 	pipe.close();
 }
 
-void powerOffVFD()
-{
-	poweredOn = false;
-	digitalWrite(LED_PIN, LED_STANDBY);
-	digitalWrite(POWER_SOURCE_PIN, LOW);
-	digitalWrite(V3_3_CTRL, LOW);
-	lastMoveIdx = 0;
-}
-
 // Signal handler function
 void signalHandler(int signum) {
 	std::cout << "Received signal: " << signum << ". Cleaning up and exiting..." << std::endl;
@@ -147,48 +171,6 @@ void signalHandler(int signum) {
 
 	// Terminate the program
 	exit(signum);
-}
-void syncDisplay()
-{
-	// clear RAM
-	
-	for (size_t i = 0; i < 0x24; i++)
-	{
-		digitalWrite(VFD_STB, LOW);
-		// command 3 - clear RAM
-		vfdSend(0b11000000);
-		vfdSend(0x00);
-		vfdSend(0x00);
-		digitalWrite(VFD_STB, HIGH);
-	}
-	
-	digitalWrite(VFD_STB, LOW);
-	// command 1 - 10 digits 18 segments
-	vfdSend(0b00000110);
-	digitalWrite(VFD_STB, HIGH);
-
-	delay(1);
-	// command 2 - normal mode
-	digitalWrite(VFD_STB, LOW);
-	vfdSend(0b01000000);
-	digitalWrite(VFD_STB, HIGH);
-	delay(1);
-
-	// command 4 turn on display
-	digitalWrite(VFD_STB, LOW);
-	vfdSend(0b10001111);
-	digitalWrite(VFD_STB, HIGH);
-}
-
-void powerOnVFD()
-{
-	poweredOn = true;
-	digitalWrite(POWER_SOURCE_PIN, HIGH);
-	digitalWrite(V3_3_CTRL, HIGH);
-	digitalWrite(LED_PIN, LED_READY);
-	std::cout << "Powering on power source\n";
-	// waiting for VFD driver startup
-	delay(200);
 }
 
 int parseButton(int serialHandle)
@@ -227,7 +209,7 @@ int parseButton(int serialHandle)
 
 int main()
 {
-	title = "NONE PLAYING";
+	title = "WAITING";
 	
 	//prepare transliterator
 	icu::UnicodeString rules = "Any-Latin; Latin-ASCII";
@@ -288,9 +270,6 @@ int main()
 	static int dataIndex = 0;
 	unsigned long lastMoveTime = 0;
 	
-	powerOnVFD();
-	std::cout << "powering on VFD\n";
-
 	for (;;)
 	{
 		unsigned long currentTime = millis();
