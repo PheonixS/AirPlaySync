@@ -4,6 +4,40 @@ std::string title = "";
 bool displayCleared = false;
 icu::Transliterator* t;
 
+void syncDisplay()
+{
+	// clear RAM
+	
+	for (size_t i = 0; i < 0x24; i++)
+	{
+		digitalWrite(VFD_STB, LOW);
+		// command 3 - clear RAM
+		vfdSend(0b11000000);
+		vfdSend(0x00);
+		vfdSend(0x00);
+		digitalWrite(VFD_STB, HIGH);
+		
+	}
+	
+	digitalWrite(VFD_STB, LOW);
+	// command 1 - 10 digits 18 segments
+	vfdSend(0b00000110);
+	digitalWrite(VFD_STB, HIGH);
+	
+	delay(1);
+	// command 2 - normal mode
+	digitalWrite(VFD_STB, LOW);
+	vfdSend(0b01000000);
+	digitalWrite(VFD_STB, HIGH);
+	delay(1);
+	
+	// command 4 turn on display
+	digitalWrite(VFD_STB, LOW);
+	vfdSend(0b10001111);
+	digitalWrite(VFD_STB, HIGH);
+}
+
+
 void powerOffVFD()
 {
 	poweredOn = false;
@@ -126,9 +160,9 @@ void readFromPipe(const std::string& pipePath) {
 							std::string decodedData = transliterate(base64::from_base64(data));							
 							const char* upperCaseData = toUpperCase(decodedData.c_str());
 							std::string filteredData = filterString(upperCaseData, asciiMap);
-							if (title != filteredData.c_str())
+							if (title != filteredData)
 							{
-								title = filteredData.c_str();
+								title = filteredData;
 								displayCleared = false;
 								std::cout << "title: " << decodedData << std::endl;
 							}
@@ -137,6 +171,7 @@ void readFromPipe(const std::string& pipePath) {
 							// if connection was requested
 							//powering on VFD
 							powerOnVFD();
+							syncDisplay();
 							std::cout << "powering on VFD\n";
 						}else if (decodedcode == "disc")
 						{	
