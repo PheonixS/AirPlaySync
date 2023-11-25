@@ -19,6 +19,8 @@ void vfdSend(uint8_t cmd);
 void writeChar(char c);
 void writeString(const char *s);
 void scrollString(const char *s);
+void scrollLargeString(const char *s, size_t origLen, int maxIdx);
+void scrollShortString(const char *s);
 
 // display pins Chip Enable
 #define VFD_STB 27 // GPIO pin 16

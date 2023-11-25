@@ -85,12 +85,6 @@ std::string filterString(const char* input, const std::map<char, TwoBytes>& asci
 	return result;
 }
 
-void clearDisplay()
-{
-	digitalWrite(VFD_STB, LOW);
-	writeString("        ");
-	digitalWrite(VFD_STB, HIGH);
-}
 
 std::string hexToString(const std::string& hex) {
 	std::string result;
@@ -164,6 +158,7 @@ void readFromPipe(const std::string& pipePath) {
 							{
 								title = filteredData;
 								displayCleared = false;
+								lastMoveIdx = 0;
 								std::cout << "title: " << decodedData << std::endl;
 							}
 						}else if (decodedcode == "conn")
@@ -172,12 +167,14 @@ void readFromPipe(const std::string& pipePath) {
 							//powering on VFD
 							powerOnVFD();
 							syncDisplay();
+							poweredOn = true;
 							std::cout << "powering on VFD\n";
 						}else if (decodedcode == "disc")
 						{	
 							// connection was terminated
 							// powering off VFD
 							powerOffVFD();
+							poweredOn = false;
 							std::cout << "powering off VFD\n";
 						}
 					}
@@ -313,11 +310,6 @@ int main()
 		{
 			if (currentTime - lastMoveTime >= scrollDelayMs)
 			{
-				if (!displayCleared)
-				{
-					clearDisplay();
-					displayCleared = true;
-				}
 				scrollString(title.c_str());
 				
 				lastMoveTime = currentTime;
@@ -350,6 +342,7 @@ int main()
 			if (!poweredOn)
 			{
 				powerOnVFD();
+				syncDisplay();
 				std::cout << "powering on VFD\n";
 			}
 			else if (poweredOn) // shutdown if already powered on

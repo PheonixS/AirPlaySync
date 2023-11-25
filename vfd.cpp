@@ -123,41 +123,49 @@ void addSpacesToRight(char* s, int targetLength) {
 	}
 }
 
+void scrollLargeString(const char *s, size_t origLen, int maxIdx)
+{
+	char windowOutput[VFD_MAXLENGTH + 1];
+	snprintf(windowOutput, sizeof(windowOutput), "%.*s", VFD_MAXLENGTH, s + lastMoveIdx);
+	digitalWrite(VFD_STB, LOW);
+	writeString(windowOutput);
+	digitalWrite(VFD_STB, HIGH);
+
+	lastMoveIdx++;
+
+	// restarting rotation if max index reached
+	if (lastMoveIdx >= maxIdx + 1)
+	{
+		lastMoveIdx = 0;
+	}
+}
+
+void scrollShortString(const char *s)
+{
+	char mS[VFD_MAXLENGTH + 1];  // Make sure it's large enough to accommodate the content
+	// Copy the content to the mutable string
+	std::strcpy(mS, s);
+		
+	addSpacesToRight(mS, VFD_MAXLENGTH);
+		
+	digitalWrite(VFD_STB, LOW);
+	writeString(mS);
+	digitalWrite(VFD_STB, HIGH);
+}
+
 // it only displays uppercase, please see mapping above
 // it will also add padding to MAXLENGTH characters with spaces
 void scrollString(const char *s)
 {
 	size_t origLen = strlen(s);
-
+	int maxIdx = origLen - VFD_MAXLENGTH;
+	
 	if (origLen > 10)
 	{
-		int maxIdx = origLen - VFD_MAXLENGTH;
-
-		char windowOutput[11];
-		snprintf(windowOutput, sizeof(windowOutput), "%.*s", VFD_MAXLENGTH, s + lastMoveIdx);
-		digitalWrite(VFD_STB, LOW);
-		writeString(windowOutput);
-		digitalWrite(VFD_STB, HIGH);
-
-		lastMoveIdx++;
-
-		// restarting rotation if max index reached
-		if (lastMoveIdx == maxIdx + 1)
-		{
-			lastMoveIdx = 0;
-		}
+		scrollLargeString(s, origLen, maxIdx);
 	}
 	else
 	{
-		char mS[VFD_MAXLENGTH + 1];  // Make sure it's large enough to accommodate the content
-		// Copy the content to the mutable string
-		std::strcpy(mS, s);
-		
-		addSpacesToRight(mS, VFD_MAXLENGTH);
-		
-		digitalWrite(VFD_STB, LOW);
-		writeString(mS);
-		digitalWrite(VFD_STB, HIGH);
-		
+		scrollShortString(s);
 	}
 }
