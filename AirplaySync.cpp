@@ -264,9 +264,6 @@ int main()
 	
 	pinMode(ADC_PIN_ARRAY, INPUT);
 	
-	pinMode(LED_BUILTIN, OUTPUT);
-	digitalWrite(LED_BUILTIN, HIGH); // turn the LED on (HIGH is the voltage level)
-
 	pinMode(LED_PIN, OUTPUT);
 	digitalWrite(LED_PIN, LED_STANDBY);
 
@@ -316,43 +313,43 @@ int main()
 			}
 		}
 		
-		int receivedInt = parseButton(serialHandle);
-				
-		if (receivedInt == -1)
-		{
-			delay(100);
-			continue;
-		}
-		
-		std::string button = getPressed(receivedInt);
-		if (button == "")
-		{		
-			delay(100);
-			continue;
-		}
-
-		if (button == "on")
-		{
-			delay(50);
-			if (button != "on")
-			{
-				continue;
-			}
-
-			if (!poweredOn)
-			{
-				powerOnVFD();
-				syncDisplay();
-				std::cout << "powering on VFD\n";
-			}
-			else if (poweredOn) // shutdown if already powered on
-			{
-				powerOffVFD();
-				std::cout << "powering off power source and VFD\n";
-			}
-		}
-
-		delay(100);
+//		int receivedInt = parseButton(serialHandle);
+//				
+//		if (receivedInt == -1)
+//		{
+//			delay(100);
+//			continue;
+//		}
+//		
+//		std::string button = getPressed(receivedInt);
+//		if (button == "")
+//		{		
+//			delay(100);
+//			continue;
+//		}
+//
+//		if (button == "on")
+//		{
+//			delay(50);
+//			if (button != "on")
+//			{
+//				continue;
+//			}
+//
+//			if (!poweredOn)
+//			{
+//				powerOnVFD();
+//				syncDisplay();
+//				std::cout << "powering on VFD\n";
+//			}
+//			else if (poweredOn) // shutdown if already powered on
+//			{
+//				powerOffVFD();
+//				std::cout << "powering off power source and VFD\n";
+//			}
+//		}
+//
+//		delay(100);
 	}
 	
 	readerThread.join();

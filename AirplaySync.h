@@ -33,12 +33,11 @@
 #define LED_READY HIGH
 
 // controls power on power source
-#define POWER_SOURCE_PIN 2 //GPIO 27
+#define POWER_SOURCE_PIN 21 //GPIO pin 5
 
 // control front panel power control
 #define V3_3_CTRL 26 // GPIO pin 12
 
-#define LED_BUILTIN 0 //GPIO 17
 // pin to read button array
 #define ADC_PIN_ARRAY 25 // GPIO pin 26
 
