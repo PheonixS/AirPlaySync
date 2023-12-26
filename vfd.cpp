@@ -75,97 +75,73 @@ uint8_t sendLSB(uint8_t orig)
 	return reversedValue;
 }
 
-void printBinary(int value, int numBits)
+void vfdSend(SPI spi, uint8_t cmd)
 {
-	for (int bit = numBits - 1; bit >= 0; bit--)
-	{
-		std::cout << ((value & (1 << bit)) ? '1' : '0');
-	}
-	std::cout << "\n";
-}
-
-void vfdSend(uint8_t cmd)
-{
-	delay(1);
-	uint8_t lsb = sendLSB(cmd);
-	wiringPiSPIDataRW(CHANNEL, &lsb, 1);
-	delay(1);
-}
-
-void writeString(const char *s)
-{
-	for (int i = strlen(s); i >= 0; i--)
-	{
-		if (s[i] == '\0')
-		{
-			continue;
-		}
-		writeChar(s[i]);
+	if (spi.openSPI()) {
+		const char data[] = { cmd };
+		spi.transfer(data, sizeof(data));
+		spi.closeSPI();
 	}
 }
 
-void writeChar(char c)
+void writeBuffered(SPI spi, std::string buf)
 {
-	vfdSend(0b11000000 + 0x00);
-	vfdSend(asciiMap[c].second);
-	vfdSend(asciiMap[c].first);
+	char outputBuffer[VFD_MAXLENGTH * 3];
+	u_int8_t i = buf.length() * 3 - 3;
+	
+	for (char c : buf) {
+		outputBuffer[i] = sendLSB(0b11000000);
+		outputBuffer[i + 1] = sendLSB(asciiMap[c].second);
+		outputBuffer[i + 2] = sendLSB(asciiMap[c].first);
+		i-=3;
+	}
+	
+	if (spi.openSPI()) {
+		spi.transfer(outputBuffer, buf.length()*3);
+		spi.closeSPI();
+	}
+}
+
+void copySegments(const std::string& inputString, std::string& outputString, size_t start, size_t end) {
+	if (start >= inputString.length() || end > inputString.length() || start >= end) {
+		std::cerr << "Invalid start or end indices" << std::endl;
+		return;
+	}
+
+	outputString = inputString.substr(start, end - start);
 }
 
 int lastMoveIdx = 0;
 
-void addSpacesToRight(char* s, int targetLength) {
-	int currentLength = static_cast<int>(std::strlen(s));
-
-	if (currentLength < targetLength) {
-		int spacesToAdd = targetLength - currentLength;
-		std::memset(s + currentLength, ' ', spacesToAdd);
-		s[targetLength] = '\0';  // Null-terminate the modified string
-	}
-}
-
-void scrollLargeString(const char *s, size_t origLen, int maxIdx)
-{
-	char windowOutput[VFD_MAXLENGTH + 1];
-	snprintf(windowOutput, sizeof(windowOutput), "%.*s", VFD_MAXLENGTH, s + lastMoveIdx);
-	digitalWrite(VFD_STB, LOW);
-	writeString(windowOutput);
-	digitalWrite(VFD_STB, HIGH);
-
-	lastMoveIdx++;
-
-	// restarting rotation if max index reached
-	if (lastMoveIdx >= maxIdx + 1)
+// it only displays uppercase, please see mapping above
+void scrollString(SPI spi, std::string s)
+{	
+	// restart with cycle
+	if (lastMoveIdx + VFD_MAXLENGTH > s.length())
 	{
 		lastMoveIdx = 0;
 	}
-}
-
-void scrollShortString(const char *s)
-{
-	char mS[VFD_MAXLENGTH + 1];  // Make sure it's large enough to accommodate the content
-	// Copy the content to the mutable string
-	std::strcpy(mS, s);
-		
-	addSpacesToRight(mS, VFD_MAXLENGTH);
-		
-	digitalWrite(VFD_STB, LOW);
-	writeString(mS);
-	digitalWrite(VFD_STB, HIGH);
-}
-
-// it only displays uppercase, please see mapping above
-// it will also add padding to MAXLENGTH characters with spaces
-void scrollString(const char *s)
-{
-	size_t origLen = strlen(s);
-	int maxIdx = origLen - VFD_MAXLENGTH;
 	
-	if (origLen > 10)
+	size_t start = lastMoveIdx;	
+	size_t end = lastMoveIdx + VFD_MAXLENGTH;	
+	std::string output;
+	
+	if (s.length() > VFD_MAXLENGTH)
 	{
-		scrollLargeString(s, origLen, maxIdx);
+		copySegments(s, output, start, end);
 	}
 	else
 	{
-		scrollShortString(s);
+		output = s; //TODO: Optimize to assign it once?
+	
+		// add padding left with spaces
+		size_t paddingSize = VFD_MAXLENGTH - output.length();
+		if (paddingSize > 0) {
+			output.insert(0, paddingSize, ' '); // Insert spaces at the beginning
+		}
 	}
+	
+	writeBuffered(spi, output);
+	
+	lastMoveIdx += 1;
 }

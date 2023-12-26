@@ -1,40 +1,32 @@
 #include "AirplaySync.h"
 
 std::string title = "";
-bool displayCleared = false;
-icu::Transliterator* t;
+icu::Transliterator* icuTrans;
 
-void syncDisplay()
+void syncDisplay(SPI spi)
 {
-	// clear RAM
 	
-	for (size_t i = 0; i < 0x24; i++)
+	// command 4 turn off display
+	vfdSend(spi, sendLSB(0b10000111));
+	
+	// clear RAM
+	for (size_t i = 0; i < 0xFF; i++)
 	{
-		digitalWrite(VFD_STB, LOW);
-		// command 3 - clear RAM
-		vfdSend(0b11000000);
-		vfdSend(0x00);
-		vfdSend(0x00);
-		digitalWrite(VFD_STB, HIGH);
-		
+		if (spi.openSPI()) {
+			const char data[] = { sendLSB(0b11000000 + i), 0x00, 0x00 };
+			spi.transfer(data, sizeof(data));
+			spi.closeSPI();
+		}
 	}
 	
-	digitalWrite(VFD_STB, LOW);
 	// command 1 - 10 digits 18 segments
-	vfdSend(0b00000110);
-	digitalWrite(VFD_STB, HIGH);
+	vfdSend(spi, sendLSB(0b00000110));
 	
-	delay(1);
 	// command 2 - normal mode
-	digitalWrite(VFD_STB, LOW);
-	vfdSend(0b01000000);
-	digitalWrite(VFD_STB, HIGH);
-	delay(1);
+	vfdSend(spi, sendLSB(0b01000000));
 	
 	// command 4 turn on display
-	digitalWrite(VFD_STB, LOW);
-	vfdSend(0b10001111);
-	digitalWrite(VFD_STB, HIGH);
+	vfdSend(spi, sendLSB(0b10001111));
 }
 
 
@@ -45,17 +37,18 @@ void powerOffVFD()
 	digitalWrite(POWER_SOURCE_PIN, LOW);
 	digitalWrite(V3_3_CTRL, LOW);
 	lastMoveIdx = 0;
+	std::cout << "Powering off power source" << std::endl;
 }
 
 void powerOnVFD()
 {
-	poweredOn = true;
 	digitalWrite(POWER_SOURCE_PIN, HIGH);
 	digitalWrite(V3_3_CTRL, HIGH);
 	digitalWrite(LED_PIN, LED_READY);
-	std::cout << "Powering on power source\n";
+	std::cout << "Powering on power source" << std::endl;
 	// waiting for VFD driver startup
 	delay(200);
+	poweredOn = true;
 }
 
 char* toUpperCase(const char* str) {
@@ -101,7 +94,7 @@ std::string transliterate(const std::string& text) {
 	icu::UnicodeString input;
 	input.setTo(text.c_str());
 	
-	t->transliterate(input);
+	icuTrans->transliterate(input);
 	
 	// Convert back to std::string if needed
 	std::string resultStr;
@@ -110,7 +103,7 @@ std::string transliterate(const std::string& text) {
 	return resultStr;
 }
 
-void readFromPipe(const std::string& pipePath) {
+void readFromPipe(SPI spi, const std::string& pipePath) {
 	std::ifstream pipe(pipePath);
 	if (!pipe.is_open()) {
 		std::cerr << "Error opening pipe." << std::endl;
@@ -154,10 +147,10 @@ void readFromPipe(const std::string& pipePath) {
 							std::string decodedData = transliterate(base64::from_base64(data));							
 							const char* upperCaseData = toUpperCase(decodedData.c_str());
 							std::string filteredData = filterString(upperCaseData, asciiMap);
+							
 							if (title != filteredData)
 							{
 								title = filteredData;
-								displayCleared = false;
 								lastMoveIdx = 0;
 								std::cout << "title: " << decodedData << std::endl;
 							}
@@ -166,7 +159,7 @@ void readFromPipe(const std::string& pipePath) {
 							// if connection was requested
 							//powering on VFD
 							powerOnVFD();
-							syncDisplay();
+							syncDisplay(spi);
 							poweredOn = true;
 							std::cout << "powering on VFD\n";
 						}else if (decodedcode == "disc")
@@ -238,21 +231,22 @@ int parseButton(int serialHandle)
 	return receivedInt;
 }
 
-
 int main()
 {
-	title = "WAITING";
+	title = "...WAITING...";
+	const std::string pipePath = "/tmp/shairport-sync-metadata";
+	
+	SPI spi("/dev/spidev1.0");
 	
 	//prepare transliterator
 	icu::UnicodeString rules = "Any-Latin; Latin-ASCII";
 	UErrorCode status = U_ZERO_ERROR;
-	t = icu::Transliterator::createInstance(rules, UTRANS_FORWARD, status);
+	icuTrans = icu::Transliterator::createInstance(rules, UTRANS_FORWARD, status);
 
-	if (U_FAILURE(status) || !t) {
+	if (U_FAILURE(status) || !icuTrans) {
 		std::cerr << "Error creating transliterator. Error code: " << u_errorName(status) << std::endl;
 		return 1;
 	}
-
 	
 	std::signal(SIGTERM, signalHandler);
 	std::signal(SIGINT, signalHandler);
@@ -271,34 +265,14 @@ int main()
 	digitalWrite(POWER_SOURCE_PIN, LOW);
 	pinMode(V3_3_CTRL, OUTPUT);
 	digitalWrite(V3_3_CTRL, LOW);
-
-	pinMode(VFD_STB, OUTPUT);
-	digitalWrite(VFD_STB, HIGH);
 	
-	// Use Arduino pro mini as ADC :D
-
-	int serialHandle = serialOpen("/dev/serial0", 115200);
-	if (serialHandle == -1) {
-		std::cout << "failed to configure serial port" << std::endl;
-		// Handle SPI setup error
-		return 1;
-	}
-
-	int spiHandle = wiringPiSPISetup(CHANNEL, SPEED);
-	if (spiHandle == -1) {
-		std::cout << "failed to configure SPI" << std::endl;
-		// Handle SPI setup error
-		return 1;
-	}
-	
-	const std::string pipePath = "/tmp/shairport-sync-metadata";
-	std::thread readerThread(readFromPipe, pipePath);
+	std::thread readerThread(readFromPipe, spi, pipePath);
 	
 	std::cout << "Hello from airplay sidecar" << std::endl;
 
 	static int dataIndex = 0;
 	unsigned long lastMoveTime = 0;
-	
+		
 	for (;;)
 	{
 		unsigned long currentTime = millis();
@@ -307,7 +281,24 @@ int main()
 		{
 			if (currentTime - lastMoveTime >= scrollDelayMs)
 			{
-				scrollString(title.c_str());
+				
+				scrollString(spi, title);
+//				if (spi.openSPI()) {
+//					const char data[] = {
+//						sendLSB(0b11000000), sendLSB(asciiMap['3'].second), sendLSB(asciiMap['3'].first),
+//						sendLSB(0b11000000), sendLSB(asciiMap['2'].second), sendLSB(asciiMap['2'].first),
+//						sendLSB(0b11000000), sendLSB(asciiMap['1'].second), sendLSB(asciiMap['1'].first),
+//						sendLSB(0b11000000), sendLSB(asciiMap['G'].second), sendLSB(asciiMap['G'].first),
+//						sendLSB(0b11000000), sendLSB(asciiMap['N'].second), sendLSB(asciiMap['N'].first),	
+//						sendLSB(0b11000000), sendLSB(asciiMap['I'].second), sendLSB(asciiMap['I'].first),
+//						sendLSB(0b11000000), sendLSB(asciiMap['T'].second), sendLSB(asciiMap['T'].first),
+//						sendLSB(0b11000000), sendLSB(asciiMap['I'].second), sendLSB(asciiMap['I'].first),
+//						sendLSB(0b11000000), sendLSB(asciiMap['A'].second), sendLSB(asciiMap['A'].first),
+//						sendLSB(0b11000000), sendLSB(asciiMap['W'].second), sendLSB(asciiMap['W'].first),	
+//						};
+//					spi.transfer(data, sizeof(data));
+//					spi.closeSPI();
+//				}
 				
 				lastMoveTime = currentTime;
 			}

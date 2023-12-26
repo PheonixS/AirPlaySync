@@ -5,9 +5,9 @@
 #include "vfd.h"
 #include "jvc.h"
 #include "compulink.h"
+#include "SPI.h"
 
 #include <wiringPi.h>
-#include <wiringPiSPI.h>
 #include <wiringSerial.h>
 #include <utility>
 
@@ -23,6 +23,8 @@
 #include <unicode/unistr.h>
 #include <unicode/translit.h>
 #include <unicode/ustring.h>
+
+#include <linux/spi/spidev.h>
 
 #include <mutex>
 #include <shared_mutex>
