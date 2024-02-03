@@ -22,8 +22,5 @@ void scrollString(SPI spi, std::string s);
 #define VFD_MAXLENGTH 10
 extern int lastMoveIdx;
 
-#define CHANNEL 1 // SPI channel (0 or 1)
-#define SPEED   500000 // SPI speed in Hz
-
 #endif
 

@@ -7,6 +7,7 @@ find_package(ICU REQUIRED COMPONENTS UC i18n)
 set(LIBRARIES_FROM_REFERENCES -lwiringPi)
 # Add the pugixml directory to the project
 add_subdirectory(libs/pugixml-1.14)
+
 add_executable(AirplaySync AirplaySync.h AirplaySync.cpp compulink.h compulink.cpp jvc.h jvc.cpp vfd.h vfd.cpp libs/base64.hpp SPI.h SPI.cpp)
 target_include_directories(AirplaySync PRIVATE ${CMAKE_SYSROOT}/usr/local/include ${CMAKE_SYSROOT}/usr/include/linux/spi libs libs/pugixml-1.14/src ${ICU_INCLUDE_DIRS})
 target_link_libraries(AirplaySync PRIVATE ${LIBRARIES_FROM_REFERENCES} pugixml ${ICU_LIBRARIES})

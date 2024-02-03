@@ -12,6 +12,7 @@
 #include <utility>
 
 #include <cstring>
+#include <cstdlib>
 #include <iostream>
 #include <csignal>
 #include <fstream>
@@ -31,8 +32,8 @@
 
 // standby led pin front panel
 #define LED_PIN 22 //GPIO pin 6
-#define LED_STANDBY LOW
-#define LED_READY HIGH
+#define LED_STANDBY HIGH
+#define LED_READY LOW
 
 // controls power on power source
 #define POWER_SOURCE_PIN 21 //GPIO pin 5

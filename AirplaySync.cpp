@@ -1,11 +1,11 @@
 #include "AirplaySync.h"
+#include <wiringPiI2C.h>
 
 std::string title = "";
 icu::Transliterator* icuTrans;
 
 void syncDisplay(SPI spi)
 {
-	
 	// command 4 turn off display
 	vfdSend(spi, sendLSB(0b10000111));
 	
@@ -101,6 +101,47 @@ std::string transliterate(const std::string& text) {
 	input.toUTF8String(resultStr);
 	
 	return resultStr;
+}
+
+const int device_address = 0x49;
+const double samplingInterval = 1.0 / 1600.0; // Sampling interval in seconds
+const char* commandStop = "docker exec shairport dbus-send --system --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.RemoteControl.Pause";
+
+void readButtonArray()
+{
+	int fd = wiringPiI2CSetup(device_address);
+
+	if (fd == -1) {
+		std::cout << "Failed to init I2C communication.\n";
+		exit(1);
+	}
+
+	std::cout << "I2C communication successfully setup.\n";
+
+	int config_value = 0x80E0; // Continuous conversion mode
+	// Write to configuration register
+	wiringPiI2CWriteReg16(fd, 0x01, config_value);
+
+	useconds_t delay = static_cast<useconds_t>(samplingInterval * 1000000);
+	
+	// The device is now set to continuous conversion mode
+	// You can now read the conversion result in a loop
+	while (true) {
+		uint16_t result = wiringPiI2CReadReg16(fd, 0x00);
+		if (result == 0)
+		{
+			usleep(delay);
+			continue;
+		}
+		
+		if (result < 10)
+		{
+			int exitCode = system(commandStop);
+			std::cout << "Conversion result: " << result << "; ex=" << exitCode << std::endl;
+		}
+		
+		usleep(delay);
+	}
 }
 
 void readFromPipe(SPI spi, const std::string& pipePath) {
@@ -236,7 +277,7 @@ int main()
 	title = "...WAITING...";
 	const std::string pipePath = "/tmp/shairport-sync-metadata";
 	
-	SPI spi("/dev/spidev1.0");
+	SPI spi("/dev/spidev0.0");
 	
 	//prepare transliterator
 	icu::UnicodeString rules = "Any-Latin; Latin-ASCII";
@@ -256,8 +297,6 @@ int main()
 		return 1;
 	}
 	
-	pinMode(ADC_PIN_ARRAY, INPUT);
-	
 	pinMode(LED_PIN, OUTPUT);
 	digitalWrite(LED_PIN, LED_STANDBY);
 
@@ -267,6 +306,7 @@ int main()
 	digitalWrite(V3_3_CTRL, LOW);
 	
 	std::thread readerThread(readFromPipe, spi, pipePath);
+	std::thread buttonArray(readButtonArray);
 	
 	std::cout << "Hello from airplay sidecar" << std::endl;
 
@@ -283,65 +323,12 @@ int main()
 			{
 				
 				scrollString(spi, title);
-//				if (spi.openSPI()) {
-//					const char data[] = {
-//						sendLSB(0b11000000), sendLSB(asciiMap['3'].second), sendLSB(asciiMap['3'].first),
-//						sendLSB(0b11000000), sendLSB(asciiMap['2'].second), sendLSB(asciiMap['2'].first),
-//						sendLSB(0b11000000), sendLSB(asciiMap['1'].second), sendLSB(asciiMap['1'].first),
-//						sendLSB(0b11000000), sendLSB(asciiMap['G'].second), sendLSB(asciiMap['G'].first),
-//						sendLSB(0b11000000), sendLSB(asciiMap['N'].second), sendLSB(asciiMap['N'].first),	
-//						sendLSB(0b11000000), sendLSB(asciiMap['I'].second), sendLSB(asciiMap['I'].first),
-//						sendLSB(0b11000000), sendLSB(asciiMap['T'].second), sendLSB(asciiMap['T'].first),
-//						sendLSB(0b11000000), sendLSB(asciiMap['I'].second), sendLSB(asciiMap['I'].first),
-//						sendLSB(0b11000000), sendLSB(asciiMap['A'].second), sendLSB(asciiMap['A'].first),
-//						sendLSB(0b11000000), sendLSB(asciiMap['W'].second), sendLSB(asciiMap['W'].first),	
-//						};
-//					spi.transfer(data, sizeof(data));
-//					spi.closeSPI();
-//				}
-				
 				lastMoveTime = currentTime;
 			}
 		}
 		
-//		int receivedInt = parseButton(serialHandle);
-//				
-//		if (receivedInt == -1)
-//		{
-//			delay(100);
-//			continue;
-//		}
-//		
-//		std::string button = getPressed(receivedInt);
-//		if (button == "")
-//		{		
-//			delay(100);
-//			continue;
-//		}
-//
-//		if (button == "on")
-//		{
-//			delay(50);
-//			if (button != "on")
-//			{
-//				continue;
-//			}
-//
-//			if (!poweredOn)
-//			{
-//				powerOnVFD();
-//				syncDisplay();
-//				std::cout << "powering on VFD\n";
-//			}
-//			else if (poweredOn) // shutdown if already powered on
-//			{
-//				powerOffVFD();
-//				std::cout << "powering off power source and VFD\n";
-//			}
-//		}
-//
-//		delay(100);
 	}
 	
 	readerThread.join();
+	buttonArray.join();
 }

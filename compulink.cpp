@@ -6,26 +6,26 @@
 void wordEnd()
 {
 	std::cout << "END\n";
-	digitalWrite(D1, HIGH);
+	digitalWrite(COMPULINK, HIGH);
 	delay(5);
-	digitalWrite(D1, LOW);
+	digitalWrite(COMPULINK, LOW);
 }
 
 void writeHigh()
 {
 	std::cout << "1";
-	digitalWrite(D1, HIGH);
+	digitalWrite(COMPULINK, HIGH);
 	delay(5);
-	digitalWrite(D1, LOW);
+	digitalWrite(COMPULINK, LOW);
 	delay(15);
 }
 
 void writeLow()
 {
 	std::cout << "0";
-	digitalWrite(D1, HIGH);
+	digitalWrite(COMPULINK, HIGH);
 	delay(5);
-	digitalWrite(D1, LOW);
+	digitalWrite(COMPULINK, LOW);
 	delay(5);
 }
 

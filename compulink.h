@@ -5,7 +5,7 @@
 #include <iostream>
 #include <wiringPi.h>
 
-#define D1 25 // GPIO pin 26
+#define COMPULINK 25 // GPIO pin 26
 #define POWER_ON 0xC0
 #define USE_CD 0xA3
 
