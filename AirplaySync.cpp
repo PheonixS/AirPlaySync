@@ -136,8 +136,8 @@ void readButtonArray()
 		
 		if (result < 10)
 		{
-			int exitCode = system(commandStop);
-			std::cout << "Conversion result: " << result << "; ex=" << exitCode << std::endl;
+			stopVFDandAirPlay(0);
+			std::cout << "Conversion result: " << result << std::endl;
 		}
 		
 		usleep(delay);
@@ -229,16 +229,22 @@ void readFromPipe(SPI spi, const std::string& pipePath) {
 	pipe.close();
 }
 
+void stopVFDandAirPlay(int signum)
+{
+	// Power off VFD
+	powerOffVFD();
+	title = "...WAITING...";
+
+	// stopping playback
+	system(commandStop);
+}
+
 // Signal handler function
 void signalHandler(int signum) {
 	std::cout << "Received signal: " << signum << ". Cleaning up and exiting..." << std::endl;
 
-	// Power off VFD
-	powerOffVFD();
-
-	// stopping playback
-	system(commandStop);
-
+	stopVFDandAirPlay(signum);
+	
 	// Terminate the program
 	exit(signum);
 }
@@ -331,6 +337,7 @@ int main()
 			}
 		}
 		
+		usleep(500000);
 	}
 	
 	readerThread.join();

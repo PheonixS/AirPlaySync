@@ -53,4 +53,6 @@ std::string getPressed(float voltage);
 
 void handleADC();
 
+void stopVFDandAirPlay(int signum);
+
 #endif
