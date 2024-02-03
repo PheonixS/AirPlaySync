@@ -48,6 +48,8 @@ void powerOnVFD()
 	std::cout << "Powering on power source" << std::endl;
 	// waiting for VFD driver startup
 	delay(200);
+	sendCommand(POWER_ON);
+	sendCommand(USE_CD);
 	poweredOn = true;
 }
 
@@ -307,6 +309,7 @@ int main()
 		return 1;
 	}
 	
+	pinMode(COMPULINK, OUTPUT);	
 	pinMode(LED_PIN, OUTPUT);
 	digitalWrite(LED_PIN, LED_STANDBY);
 
