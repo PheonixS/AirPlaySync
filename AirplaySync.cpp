@@ -233,7 +233,11 @@ void readFromPipe(SPI spi, const std::string& pipePath) {
 void signalHandler(int signum) {
 	std::cout << "Received signal: " << signum << ". Cleaning up and exiting..." << std::endl;
 
+	// Power off VFD
 	powerOffVFD();
+
+	// stopping playback
+	system(commandStop);
 
 	// Terminate the program
 	exit(signum);
