@@ -150,7 +150,7 @@ void readFromPipe(SPI spi, const std::string& pipePath) {
 	std::ifstream pipe(pipePath);
 	if (!pipe.is_open()) {
 		std::cerr << "Error opening pipe." << std::endl;
-		return;
+		exit(1);
 	}
 
 	std::string xmlString;
@@ -231,6 +231,7 @@ void readFromPipe(SPI spi, const std::string& pipePath) {
 	pipe.close();
 }
 
+//TODO: power on VFD if system shut down used local button
 void stopVFDandAirPlay(int signum)
 {
 	// Power off VFD
@@ -249,39 +250,6 @@ void signalHandler(int signum) {
 	
 	// Terminate the program
 	exit(signum);
-}
-
-int parseButton(int serialHandle)
-{
-	char receivedString[50]; // Buffer to store received characters
-	int charIndex = 0;
-	int receivedInt = -1;
-	
-	// Check if data is available in the serial buffer
-	while (serialDataAvail(serialHandle) > 0) {
-		// Read a character from the serial port
-		char incomingChar = serialGetchar(serialHandle);
-
-		// Check if the received character is a newline character
-		if (incomingChar == '\n') {
-			// Null-terminate the string
-			receivedString[charIndex] = '\0';
-			receivedInt = atoi(receivedString);
-				
-			// Reset the buffer index
-			charIndex = 0;
-		}
-		else {
-			// Store the character in the buffer
-			receivedString[charIndex++] = incomingChar;
-
-			// Check if the buffer is full to avoid overflow
-			if (charIndex >= sizeof(receivedString) - 1) {
-				charIndex = 0; // Reset the buffer index
-			}
-		}
-	}
-	return receivedInt;
 }
 
 int main()

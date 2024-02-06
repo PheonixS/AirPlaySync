@@ -8,7 +8,7 @@
     </CustomSourceDirectories>
     <AutoProgramSPIFFSPartition>true</AutoProgramSPIFFSPartition>
     <DeploymentHost>
-      <HostName>192.168.88.70</HostName>
+      <HostName>192.168.88.101</HostName>
       <Transport>SSH</Transport>
       <UserName>pheonixs</UserName>
     </DeploymentHost>
@@ -78,6 +78,7 @@
             <Value>c:/SysGCC/raspberry/arm-linux-gnueabihf/sysroot</Value>
           </Record>
         </Records>
+        <EnvironmentSetupFiles />
       </Environment>
       <BackgroundMode xsi:nil="true" />
     </MakeCommandTemplate>
@@ -103,6 +104,7 @@
             <Value>$(ToolchainDir.forwardslashes)/arm-linux-gnueabihf/sysroot</Value>
           </Record>
         </Records>
+        <EnvironmentSetupFiles />
       </Environment>
       <BackgroundMode xsi:nil="true" />
     </CMakeCommand>

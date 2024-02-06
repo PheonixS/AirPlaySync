@@ -5,7 +5,6 @@
 
 void wordEnd()
 {
-	std::cout << "END\n";
 	digitalWrite(COMPULINK, HIGH);
 	delay(5);
 	digitalWrite(COMPULINK, LOW);
@@ -13,7 +12,6 @@ void wordEnd()
 
 void writeHigh()
 {
-	std::cout << "1";
 	digitalWrite(COMPULINK, HIGH);
 	delay(5);
 	digitalWrite(COMPULINK, LOW);
@@ -22,7 +20,6 @@ void writeHigh()
 
 void writeLow()
 {
-	std::cout << "0";
 	digitalWrite(COMPULINK, HIGH);
 	delay(5);
 	digitalWrite(COMPULINK, LOW);

@@ -8,7 +8,6 @@
 #include "SPI.h"
 
 #include <wiringPi.h>
-#include <wiringSerial.h>
 #include <utility>
 
 #include <cstring>
