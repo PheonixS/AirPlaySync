@@ -53,5 +53,6 @@ std::string getPressed(float voltage);
 void handleADC();
 
 void stopVFDandAirPlay(int signum);
+void syncDisplay(SPI spi);
 
 #endif

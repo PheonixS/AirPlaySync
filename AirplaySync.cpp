@@ -114,11 +114,11 @@ void readButtonArray()
 	int fd = wiringPiI2CSetup(device_address);
 
 	if (fd == -1) {
-		std::cout << "Failed to init I2C communication.\n";
+		std::cout << "Failed to init I2C communication" << std::endl;
 		exit(1);
 	}
 
-	std::cout << "I2C communication successfully setup.\n";
+	std::cout << "I2C communication successfully setup" << std::endl;
 
 	int config_value = 0x80E0; // Continuous conversion mode
 	// Write to configuration register
@@ -183,10 +183,18 @@ void readFromPipe(SPI spi, const std::string& pipePath) {
 					std::string decodedcode = hexToString(code);
 									
 					if (data != "")
-					{
+					{						
 						// Title
 						if (decodedcode == "minm")
 						{
+							// if wasn't powered on, but title was received
+							// powering on VFD
+							if (!poweredOn)
+							{
+								powerOnVFD();
+								syncDisplay(spi);
+							}
+
 							std::string decodedData = transliterate(base64::from_base64(data));							
 							const char* upperCaseData = toUpperCase(decodedData.c_str());
 							std::string filteredData = filterString(upperCaseData, asciiMap);
@@ -199,19 +207,15 @@ void readFromPipe(SPI spi, const std::string& pipePath) {
 							}
 						}else if (decodedcode == "conn")
 						{	
-							// if connection was requested
-							//powering on VFD
+							std::cout << "received connection event" << std::endl;
 							powerOnVFD();
 							syncDisplay(spi);
-							poweredOn = true;
-							std::cout << "powering on VFD\n";
+							std::cout << "powering on VFD" << std::endl;
 						}else if (decodedcode == "disc")
 						{	
-							// connection was terminated
-							// powering off VFD
+							std::cout << "received disconnect event" << std::endl;
 							powerOffVFD();
-							poweredOn = false;
-							std::cout << "powering off VFD\n";
+							std::cout << "powering off VFD" << std::endl;
 						}
 					}
 				}
