@@ -1,14 +1,14 @@
-# AirplaySync - Repurposing of Harman-Kardon DVD(27) player 
+# ShariSync - Repurposing of Harman-Kardon DVD(27) player 
 
 Here is a full source code I'm using to control DVD27 from the Raspberry PI.
 Please check https://pheonixs.nl for details over design and walkthrough over details of this project.
 
 Service file to run software as a daemon:
-`/etc/systemd/system/AirplaySync.service`
+`/etc/systemd/system/ShariSync.service`
 
 ```
 [Unit]
-Description=Airplay sync service
+Description=ShariSync service
 After=network.target
 StartLimitIntervalSec=0
 Requires=docker.service
@@ -17,7 +17,7 @@ Requires=docker.service
 Type=simple
 Restart=always
 RestartSec=5
-ExecStart=/usr/bin/AirplaySync
+ExecStart=/usr/bin/ShariSync
 
 [Install]
 WantedBy=multi-user.target

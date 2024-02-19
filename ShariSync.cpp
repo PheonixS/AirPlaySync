@@ -1,4 +1,4 @@
-#include "AirplaySync.h"
+#include "ShariSync.h"
 #include <wiringPiI2C.h>
 
 std::string title = "";
