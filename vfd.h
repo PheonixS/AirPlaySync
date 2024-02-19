@@ -23,4 +23,3 @@ void scrollString(SPI spi, std::string s);
 extern int lastMoveIdx;
 
 #endif
-
